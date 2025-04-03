@@ -1,9 +1,17 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { registerForPushNotificationsAsync } from '../pushNotifications';
 
 export default function Home() {
   const router = useRouter();
+
+  useEffect(() => {
+    // Register the device for push notifications on component mount.
+    // This will request permissions, retrieve the Expo push token,
+    // and log it to the console.
+    registerForPushNotificationsAsync();
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -71,4 +79,3 @@ const styles = StyleSheet.create({
     color: '#007BFF',
   },
 });
-

@@ -16,7 +16,9 @@ import {
 import { useRouter } from 'expo-router';
 import { auth, db } from '../firebase';
 import { signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { registerForPushNotificationsAsync } from '../pushNotifications';
+
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -58,6 +60,11 @@ function Login() {
       // ✅ Check if user has completed profile setup in Firestore
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       const userData = userDoc.data();
+
+      const pushToken = await registerForPushNotificationsAsync();
+      if (pushToken) {
+        await updateDoc(doc(db, 'users', user.uid), { pushToken });
+      }
 
       if (userData && !userData.hasCompletedProfileSetup) {
         console.log('Redirecting to profile setup...');

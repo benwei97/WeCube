@@ -15,8 +15,10 @@ import {
 import { useRouter } from 'expo-router';
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
+import { registerForPushNotificationsAsync } from '../pushNotifications';
+
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -83,8 +85,13 @@ function SignUp() {
       });
 
       await sendEmailVerification(user);
-      setMessage('📩 Verification email sent! Please check your inbox.');
 
+      const pushToken = await registerForPushNotificationsAsync();
+      if (pushToken) {
+        await updateDoc(doc(db, 'users', user.uid), { pushToken });
+      }
+
+      setMessage('📩 Verification email sent! Please check your inbox.');
     } catch (error) {
       let errorMessage = 'An unexpected error occurred. Please try again.';
 
