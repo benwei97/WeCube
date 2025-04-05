@@ -117,8 +117,12 @@ const ListingDetails = () => {
       });
     }
 
-    router.replace(`/tabs/messages/`);
+    router.push('/tabs/messages');
+
+  // Wait a moment to let the navigator initialize
+  setTimeout(() => {
     router.push(`/tabs/messages/${conversationId}`);
+  }, 1);
   };
 
   if (!listing) {
