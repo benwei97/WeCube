@@ -8,7 +8,18 @@ import {
   Image,
   StyleSheet,
 } from 'react-native';
-import { collection, query, where, onSnapshot, getDoc, doc, updateDoc, getDocs, orderBy, limit } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  getDoc,
+  doc,
+  updateDoc,
+  getDocs,
+  orderBy,
+  limit,
+} from 'firebase/firestore';
 import { db, auth } from '../../../firebase'; 
 import { useRouter } from 'expo-router';
 
@@ -72,7 +83,9 @@ const Messages = () => {
           convos.push(conversationData); // ✅ Add conversation only if a message exists
         }
   
-        const otherParticipantId = data.participants.find(id => id !== auth.currentUser?.uid);
+        const otherParticipantId = data.participants.find(
+          (id) => id !== auth.currentUser?.uid
+        );
         if (otherParticipantId && !usernamesMap[otherParticipantId]) {
           const userDocRef = doc(db, 'users', otherParticipantId);
           const userDocSnap = await getDoc(userDocRef);
@@ -104,8 +117,12 @@ const Messages = () => {
   
 
   const handleConversationClick = async (conversation: Conversation) => {
+    // Navigate to the conversation screen
     router.push(`/tabs/messages/${conversation.id}`);
 
+    // The following logic is commented out so that the unread messages
+    // are NOT marked as read until the user actually views the conversation.
+    /*
     const q = query(
       collection(db, 'messages'),
       where('conversationId', '==', conversation.id),
@@ -130,6 +147,7 @@ const Messages = () => {
     }
 
     return () => unsubscribe();
+    */
   };
 
   const hasUnreadMessages = (conversation: Conversation): boolean => {
@@ -160,33 +178,48 @@ const Messages = () => {
       data={conversations}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => {
-        const otherParticipantId = item.participants.find(id => id !== auth.currentUser?.uid);
-        const otherParticipant = usernames[otherParticipantId || ''] || {
-          username: 'Unknown',
-          photoURL: 'https://via.placeholder.com/40',
-        };
+        const otherParticipantId = item.participants.find(
+          (id) => id !== auth.currentUser?.uid
+        );
+        const otherParticipant =
+          usernames[otherParticipantId || ''] || {
+            username: 'Unknown',
+            photoURL: 'https://via.placeholder.com/40',
+          };
 
         return (
-          <TouchableOpacity onPress={() => handleConversationClick(item)} style={styles.conversationItem}>
-            <Image source={{ uri: otherParticipant.photoURL }} style={styles.profilePicture} />
+          <TouchableOpacity
+            onPress={() => handleConversationClick(item)}
+            style={styles.conversationItem}
+          >
+            <Image
+              source={{ uri: otherParticipant.photoURL }}
+              style={styles.profilePicture}
+            />
             <View style={styles.conversationDetails}>
-              <Text style={styles.username}>{otherParticipant.username}</Text>
+              <Text style={styles.username}>
+                {otherParticipant.username}
+              </Text>
               <View style={styles.lastMessageContainer}>
-                <Text 
+                <Text
                   style={[
-                    styles.lastMessage, 
-                    hasUnreadMessages(item) ? styles.unreadMessage : {}
-                  ]} 
+                    styles.lastMessage,
+                    hasUnreadMessages(item) ? styles.unreadMessage : {},
+                  ]}
                   numberOfLines={1}
                 >
                   {item.lastMessage?.message || 'No messages yet'}
                 </Text>
                 <Text style={styles.timeIndicator}>
-                  {item.lastMessage?.timestamp ? formatTimestamp(item.lastMessage.timestamp) : ''}
+                  {item.lastMessage?.timestamp
+                    ? formatTimestamp(item.lastMessage.timestamp)
+                    : ''}
                 </Text>
               </View>
             </View>
-            {hasUnreadMessages(item) && <View style={styles.unreadIndicator} />}
+            {hasUnreadMessages(item) && (
+              <View style={styles.unreadIndicator} />
+            )}
           </TouchableOpacity>
         );
       }}
