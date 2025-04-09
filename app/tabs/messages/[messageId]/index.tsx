@@ -139,27 +139,33 @@ const MessageScreen = () => {
     fetchConversationDetails();
   }, [messageId]);
 
-  // Mark messages as read when the conversation screen mounts
+  // NEW EFFECT: Continuously mark new unread messages as read
   useEffect(() => {
-    const markMessagesAsRead = async () => {
-      if (!messageId || !auth.currentUser) return;
-      const q = query(
-        collection(db, 'messages'),
-        where('conversationId', '==', messageId),
-        where('recipientId', '==', auth.currentUser.uid),
-        where('isRead', '==', false)
-      );
-      const snapshot = await getDocs(q);
-      snapshot.forEach(async (messageDoc) => {
-        await updateDoc(messageDoc.ref, { isRead: true });
-      });
-      const conversationRef = doc(db, 'conversations', messageId);
-      await updateDoc(conversationRef, {
-        'lastMessage.isRead': true,
-      });
+    if (!messageId || !auth.currentUser) return;
+    const q = query(
+      collection(db, 'messages'),
+      where('conversationId', '==', messageId),
+      where('recipientId', '==', auth.currentUser.uid),
+      where('isRead', '==', false)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      // Wrap the async updates in an IIFE to allow using await inside the callback.
+      (async () => {
+        console.log('Unread messages snapshot received, size:', snapshot.size);
+        snapshot.forEach(async (messageDoc) => {
+          console.log('Marking message as read (MessageScreen):', messageDoc.id);
+          await updateDoc(messageDoc.ref, { isRead: true });
+        });
+        if (!snapshot.empty) {
+          const conversationRef = doc(db, 'conversations', messageId);
+          await updateDoc(conversationRef, { 'lastMessage.isRead': true });
+        }
+      })();
+    });
+    return () => {
+      console.log('Unsubscribing from unread messages listener (MessageScreen).');
+      unsubscribe();
     };
-
-    markMessagesAsRead();
   }, [messageId]);
 
   const handleSendMessage = async () => {
@@ -171,7 +177,7 @@ const MessageScreen = () => {
         message: newMessage,
         recipientId: recipientId,
         timestamp: serverTimestamp() as any,
-        isRead: false,
+        isRead: false, // Default to false on creation
       };
 
       // Add the message to the 'messages' collection
@@ -190,7 +196,6 @@ const MessageScreen = () => {
         },
       });
 
-      // Clear input and auto-scroll
       setNewMessage('');
       setIsUserScrolling(false);
       scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -203,7 +208,6 @@ const MessageScreen = () => {
     const now = new Date();
     const yesterday = new Date();
     yesterday.setDate(now.getDate() - 1);
-
     if (
       msgDate.getDate() === now.getDate() &&
       msgDate.getMonth() === now.getMonth() &&
@@ -264,12 +268,10 @@ const MessageScreen = () => {
               minute: '2-digit',
             });
             const formattedDate = formatDate(msgDate);
-
             const shouldShowDate =
               index === 0 ||
               new Date(msgs[index - 1].timestamp.seconds * 1000).getHours() !==
                 msgDate.getHours();
-
             return (
               <View key={index}>
                 {shouldShowDate && (
@@ -368,10 +370,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 10,
   },
-  messageContainer: {
-    flex: 1,
-    paddingHorizontal: 10,
-  },
+  messageContainer: { flex: 1, paddingHorizontal: 10 },
   noMessagesText: {
     textAlign: 'center',
     color: '#888',
