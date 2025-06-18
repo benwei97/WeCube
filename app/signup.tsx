@@ -178,6 +178,8 @@ function SignUp() {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}  
+              autoComplete="off" 
               style={styles.input}
             />
 
