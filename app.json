@@ -2,7 +2,7 @@
   "expo": {
     "name": "WeCubeMobile",
     "slug": "WeCubeMobile",
-    "version": "1.0.8",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/wecube-logo.png",
     "scheme": "myapp",
@@ -16,7 +16,7 @@
       "supportsTablet": true,
       "deploymentTarget": "18.0",
       "bundleIdentifier": "com.wecubemobile.app",
-      "buildNumber": "17",
+      "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
