@@ -14,8 +14,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { auth, db, storage } from '../../../firebase.js';
-import { updateProfile, signOut } from 'firebase/auth';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { updateProfile, signOut, deleteUser } from 'firebase/auth';
+import { doc, updateDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
@@ -113,6 +113,30 @@ const ProfileScreen = () => {
     }
   };
 
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', onPress: handleDeleteAccount, style: 'destructive' },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      if (!user) return;
+      await deleteDoc(doc(db, 'users', user.uid));
+      await deleteUser(user);
+      Alert.alert('Account Deleted', 'Your account has been permanently deleted.');
+      router.replace('/');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      Alert.alert('Error', 'Failed to delete account. Please re-authenticate and try again.');
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -159,10 +183,16 @@ const ProfileScreen = () => {
           </View>
 
           {!isEditing && (
-            <TouchableOpacity style={styles.logoutButton} onPress={confirmLogout}>
-              <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
-              <Text style={styles.logoutButtonText}>Logout</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity style={styles.logoutButton} onPress={confirmLogout}>
+                <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
+                <Text style={styles.logoutButtonText}>Logout</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.deleteButton} onPress={confirmDeleteAccount}>
+                <Ionicons name="trash" size={24} color="#FF3B30" />
+                <Text style={styles.deleteButtonText}>Delete Account</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       </TouchableWithoutFeedback>
@@ -187,6 +217,8 @@ const styles = StyleSheet.create({
   usernameText: { fontSize: 18, fontWeight: 'bold' },
   logoutButton: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginTop: 30, paddingVertical: 10, paddingHorizontal: 15, borderRadius: 8 },
   logoutButtonText: { marginLeft: 8, color: '#FF3B30', fontSize: 16 },
+  deleteButton: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginTop: 20, paddingVertical: 10, paddingHorizontal: 15, borderRadius: 8 },
+  deleteButtonText: { marginLeft: 8, color: '#FF3B30', fontSize: 16 },
 });
 
 export default ProfileScreen;
