@@ -18,7 +18,9 @@
       "bundleIdentifier": "com.wecubemobile.app",
       "buildNumber": "1",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "We use your camera to take profile or puzzle listing photos.",
+        "NSPhotoLibraryUsageDescription": "We use your photo library to choose profile or puzzle listing images."
       }
     },
     "android": {
