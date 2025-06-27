@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { doc, getDoc, setDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, deleteDoc, collection, addDoc } from 'firebase/firestore';
 import { db, auth } from '../../../../../firebase';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -52,11 +52,7 @@ const ListingDetails = () => {
 
           const userDocRef = doc(db, 'users', listingData.userId);
           const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
-            setSellerUsername(userDocSnap.data().username);
-          } else {
-            setSellerUsername('Unknown');
-          }
+          setSellerUsername(userDocSnap.exists() ? userDocSnap.data().username : 'Unknown');
 
           setIsOwner(auth.currentUser?.uid === listingData.userId);
         }
@@ -99,7 +95,6 @@ const ListingDetails = () => {
 
     const buyerId = auth.currentUser.uid;
     const sellerId = listing?.userId;
-
     if (!sellerId) return;
 
     const sortedIds = [buyerId, sellerId].sort();
@@ -118,11 +113,41 @@ const ListingDetails = () => {
     }
 
     router.push('/tabs/messages');
+    setTimeout(() => router.push(`/tabs/messages/${conversationId}`), 1);
+  };
 
-  // Wait a moment to let the navigator initialize
-  setTimeout(() => {
-    router.push(`/tabs/messages/${conversationId}`);
-  }, 1);
+  const handleReportListing = () => {
+    Alert.prompt(
+      '🚩 Report Listing',
+      'Why are you reporting this listing? (e.g., spam, scam, offensive)',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Submit',
+          onPress: async (reason) => {
+            try {
+              const user = auth.currentUser;
+              if (!user) {
+                Alert.alert('You must be logged in to report a listing.');
+                return;
+              }
+              await addDoc(collection(db, 'reports'), {
+                listingId,
+                reportedBy: user.uid,
+                reason,
+                createdAt: serverTimestamp(),
+                type: 'listing',
+              });
+              Alert.alert('✅ Report submitted', 'Thanks for helping us keep the app safe.');
+            } catch (err) {
+              console.error('Error submitting report:', err);
+              Alert.alert('❌ Error', 'Could not submit report. Try again later.');
+            }
+          },
+        },
+      ],
+      'plain-text'
+    );
   };
 
   if (!listing) {
@@ -137,7 +162,7 @@ const ListingDetails = () => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Image source={{ uri: listing.imageUrl }} style={styles.listingImage} />
-      
+
       <View style={styles.card}>
         <Text style={styles.listingName}>{listing.name}</Text>
         <Text style={styles.listingDetail}>Price: <Text style={styles.detailValue}>${listing.price}</Text></Text>
@@ -158,9 +183,14 @@ const ListingDetails = () => {
             <Text style={styles.deleteButtonText}>Delete Listing</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={styles.contactButton} onPress={handleContactSeller}>
-            <Text style={styles.contactButtonText}>Contact Seller</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity style={styles.contactButton} onPress={handleContactSeller}>
+              <Text style={styles.contactButtonText}>Contact Seller</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.reportButton} onPress={handleReportListing}>
+              <Text style={styles.reportButtonText}>🚩 Report</Text>
+            </TouchableOpacity>
+          </>
         )}
       </View>
     </ScrollView>
@@ -168,93 +198,36 @@ const ListingDetails = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    backgroundColor: '#f5f5f5',
-  },
-  centeredContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  container: { padding: 20, backgroundColor: '#f5f5f5' },
+  centeredContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5,
-    elevation: 3,
+    backgroundColor: '#fff', borderRadius: 12, padding: 20, marginBottom: 20,
+    shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 5, elevation: 3,
   },
-  listingImage: {
-    width: '100%',
-    height: 250,
-    borderRadius: 12,
-    marginBottom: 20,
-    resizeMode: 'cover',
-  },
-  listingName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  listingDetail: {
-    fontSize: 16,
-    marginBottom: 5,
-    color: '#555',
-  },
-  detailValue: {
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  listingDescription: {
-    fontSize: 14,
-    marginTop: 5,
-    color: '#666',
-    lineHeight: 20,
-  },
-  sellerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  sellerName: {
-    fontSize: 16,
-    marginLeft: 10,
-    color: '#007BFF',
-    fontWeight: 'bold',
-  },
-  buttonContainer: {
-    alignItems: 'center',
-  },
+  listingImage: { width: '100%', height: 250, borderRadius: 12, marginBottom: 20, resizeMode: 'cover' },
+  listingName: { fontSize: 22, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' },
+  listingDetail: { fontSize: 16, marginBottom: 5, color: '#555' },
+  detailValue: { fontWeight: 'bold', color: '#333' },
+  listingDescription: { fontSize: 14, marginTop: 5, color: '#666', lineHeight: 20 },
+  sellerInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  sellerName: { fontSize: 16, marginLeft: 10, color: '#007BFF', fontWeight: 'bold' },
+  buttonContainer: { alignItems: 'center' },
   deleteButton: {
-    backgroundColor: '#FF3B30',
-    padding: 12,
-    borderRadius: 25,
-    width: '80%',
-    alignItems: 'center',
+    backgroundColor: '#FF3B30', padding: 12, borderRadius: 25,
+    width: '80%', alignItems: 'center', marginTop: 10,
   },
-  deleteButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  deleteButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   contactButton: {
-    backgroundColor: '#007BFF',
-    padding: 12,
-    borderRadius: 25,
-    width: '80%',
-    alignItems: 'center',
+    backgroundColor: '#007BFF', padding: 12, borderRadius: 25,
+    width: '80%', alignItems: 'center',
   },
-  contactButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+  contactButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  reportButton: {
+    borderColor: '#aaa', borderWidth: 1, paddingVertical: 8, paddingHorizontal: 16,
+    borderRadius: 18, marginTop: 10, alignItems: 'center',
   },
+  reportButtonText: { color: '#666', fontSize: 14, fontWeight: '500' },
 });
 
 export default ListingDetails;
