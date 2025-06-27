@@ -19,7 +19,6 @@ import { doc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { Ionicons } from '@expo/vector-icons';
 import { registerForPushNotificationsAsync } from '../pushNotifications';
 
-
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -31,6 +30,7 @@ function SignUp() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [resendCountdown, setResendCountdown] = useState(0);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -66,6 +66,10 @@ function SignUp() {
     }
     if (password.length < 6) {
       setError('Password must be at least 6 characters long.');
+      return;
+    }
+    if (!agreedToTerms) {
+      setError('You must agree to the Terms and Conditions.');
       return;
     }
 
@@ -197,6 +201,25 @@ function SignUp() {
               </TouchableOpacity>
             </View>
 
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+              <TouchableOpacity
+                style={{ marginRight: 8 }}
+                onPress={() => setAgreedToTerms(!agreedToTerms)}
+              >
+                <Ionicons
+                  name={agreedToTerms ? 'checkbox' : 'square-outline'}
+                  size={24}
+                  color={agreedToTerms ? '#007BFF' : '#aaa'}
+                />
+              </TouchableOpacity>
+              <Text style={{ fontSize: 14, color: '#555' }}>
+                I agree to the{' '}
+                <Text style={{ color: '#007BFF' }} onPress={() => router.push('https://benwei97.github.io/WeCube/terms.html')}>
+                  Terms and Conditions
+                </Text>
+              </Text>
+            </View>
+
             {message ? <Text style={styles.successText}>{message}</Text> : null}
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -230,7 +253,6 @@ function SignUp() {
   );
 }
 
-/* ✅ Updated Styles */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
