@@ -85,6 +85,7 @@ function SignUp() {
         username: username,
         photoURL: null,
         hasCompletedProfileSetup: false,
+        blockedUsers: [],
         createdAt: serverTimestamp(),
       });
 

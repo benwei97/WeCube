@@ -10,6 +10,7 @@ import {
   Keyboard,
   LayoutAnimation,
   Platform,
+  Alert,
   EmitterSubscription,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -24,7 +25,8 @@ import {
   updateDoc,
   orderBy,
   serverTimestamp,
-  getDocs,
+  arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore';
 import { db, auth } from '../../../../firebase';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,10 +48,11 @@ const MessageScreen = () => {
   const [recipientProfilePicture, setRecipientProfilePicture] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const [isEitherUserBlocked, setIsEitherUserBlocked] = useState(false);
+  const [isRecipientBlockedByCurrentUser, setIsRecipientBlockedByCurrentUser] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const router = useRouter();
 
-  // Keyboard listeners (unchanged)
   useEffect(() => {
     let showListener: EmitterSubscription;
     let hideListener: EmitterSubscription;
@@ -82,37 +85,41 @@ const MessageScreen = () => {
     };
   }, []);
 
-  // Fetch conversation and recipient details
   useEffect(() => {
-    if (!messageId) {
-      console.error('Message ID not provided!');
-      return;
-    }
+    if (!messageId) return;
 
     const fetchConversationDetails = async () => {
       try {
-        const conversationRef = doc(db, 'conversations', messageId as string);
+        const conversationRef = doc(db, 'conversations', messageId);
         const conversationSnap = await getDoc(conversationRef);
 
         if (conversationSnap.exists()) {
           const conversationData = conversationSnap.data();
           const participants = conversationData.participants;
-
-          const otherUserId = participants.find(
-            (id: string) => id !== auth.currentUser?.uid
-          );
+          const otherUserId = participants.find((id: string) => id !== auth.currentUser?.uid);
           setRecipientId(otherUserId);
 
-          const recipientDocRef = doc(db, 'users', otherUserId);
-          const recipientDocSnap = await getDoc(recipientDocRef);
+          const recipientDoc = await getDoc(doc(db, 'users', otherUserId));
+          const currentUserDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
 
-          if (recipientDocSnap.exists()) {
-            setRecipientUsername(recipientDocSnap.data().username || 'Unknown');
-            setRecipientProfilePicture(recipientDocSnap.data().photoURL || null);
+          if (recipientDoc.exists()) {
+            const data = recipientDoc.data();
+            setRecipientUsername(data.username || 'Unknown');
+            setRecipientProfilePicture(data.photoURL || null);
+          }
+
+          if (currentUserDoc.exists() && recipientDoc.exists()) {
+            const currentData = currentUserDoc.data();
+            const recipientData = recipientDoc.data();
+            const currentBlocked = currentData.blockedUsers || [];
+            const recipientBlocked = recipientData.blockedUsers || [];
+
+            setIsRecipientBlockedByCurrentUser(currentBlocked.includes(otherUserId));
+            setIsEitherUserBlocked(currentBlocked.includes(otherUserId) || recipientBlocked.includes(auth.currentUser.uid));
           }
         }
       } catch (error) {
-        console.error('Error fetching recipient details:', error);
+        console.error('Error fetching conversation details:', error);
       }
 
       const messagesQuery = query(
@@ -122,14 +129,7 @@ const MessageScreen = () => {
       );
 
       const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
-        const msgsData = snapshot.docs.map((doc) => ({
-          senderId: doc.data().senderId,
-          message: doc.data().message,
-          recipientId: doc.data().recipientId,
-          timestamp: doc.data().timestamp,
-          isRead: doc.data().isRead,
-        }));
-
+        const msgsData = snapshot.docs.map((doc) => doc.data() as Message);
         setMsgs(msgsData);
       });
 
@@ -139,7 +139,6 @@ const MessageScreen = () => {
     fetchConversationDetails();
   }, [messageId]);
 
-  // NEW EFFECT: Continuously mark new unread messages as read
   useEffect(() => {
     if (!messageId || !auth.currentUser) return;
     const q = query(
@@ -149,11 +148,8 @@ const MessageScreen = () => {
       where('isRead', '==', false)
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      // Wrap the async updates in an IIFE to allow using await inside the callback.
       (async () => {
-        console.log('Unread messages snapshot received, size:', snapshot.size);
         snapshot.forEach(async (messageDoc) => {
-          console.log('Marking message as read (MessageScreen):', messageDoc.id);
           await updateDoc(messageDoc.ref, { isRead: true });
         });
         if (!snapshot.empty) {
@@ -162,31 +158,83 @@ const MessageScreen = () => {
         }
       })();
     });
-    return () => {
-      console.log('Unsubscribing from unread messages listener (MessageScreen).');
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, [messageId]);
+
+  const handleBlockUnblockUser = () => {
+    if (isRecipientBlockedByCurrentUser) {
+      Alert.alert(
+        'Unblock User',
+        'Do you want to unblock this user?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Unblock',
+            onPress: async () => {
+              try {
+                const userRef = doc(db, 'users', auth.currentUser.uid);
+                await updateDoc(userRef, {
+                  blockedUsers: arrayRemove(recipientId),
+                });
+                setIsRecipientBlockedByCurrentUser(false);
+                setIsEitherUserBlocked(false);
+                Alert.alert('User unblocked');
+              } catch (error) {
+                console.error('Error unblocking user:', error);
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      Alert.alert(
+        'Block User',
+        'Are you sure you want to block this user? You will no longer receive messages from them.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Block',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const userRef = doc(db, 'users', auth.currentUser.uid);
+                await updateDoc(userRef, {
+                  blockedUsers: arrayUnion(recipientId),
+                });
+                setIsRecipientBlockedByCurrentUser(true);
+                setIsEitherUserBlocked(true);
+                Alert.alert('User blocked');
+              } catch (error) {
+                console.error('Error blocking user:', error);
+              }
+            },
+          },
+        ]
+      );
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!auth.currentUser || !newMessage.trim()) return;
+    if (isEitherUserBlocked) {
+      Alert.alert('Blocked', "You can't send messages to or receive from this user.");
+      return;
+    }
 
     try {
       const messageData: Message = {
         senderId: auth.currentUser.uid,
         message: newMessage,
-        recipientId: recipientId,
-        timestamp: serverTimestamp() as any,
-        isRead: false, // Default to false on creation
+        recipientId,
+        timestamp: serverTimestamp(),
+        isRead: false,
       };
 
-      // Add the message to the 'messages' collection
       await addDoc(collection(db, 'messages'), {
         ...messageData,
         conversationId: messageId,
       });
 
-      // Update lastMessage in the conversations collection
       await updateDoc(doc(db, 'conversations', messageId), {
         lastMessage: {
           message: newMessage,
@@ -200,7 +248,7 @@ const MessageScreen = () => {
       setIsUserScrolling(false);
       scrollViewRef.current?.scrollToEnd({ animated: true });
     } catch (error) {
-      console.error('❌ Error sending message:', error);
+      console.error('Error sending message:', error);
     }
   };
 
@@ -212,35 +260,30 @@ const MessageScreen = () => {
       msgDate.getDate() === now.getDate() &&
       msgDate.getMonth() === now.getMonth() &&
       msgDate.getFullYear() === now.getFullYear()
-    ) {
-      return 'Today';
-    } else if (
+    ) return 'Today';
+    else if (
       msgDate.getDate() === yesterday.getDate() &&
       msgDate.getMonth() === yesterday.getMonth() &&
       msgDate.getFullYear() === yesterday.getFullYear()
-    ) {
-      return 'Yesterday';
-    } else {
-      return msgDate.toLocaleDateString();
-    }
+    ) return 'Yesterday';
+    else return msgDate.toLocaleDateString();
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.profileHeader}>
         {recipientProfilePicture ? (
-          <Image
-            source={{ uri: recipientProfilePicture }}
-            style={styles.profilePicture}
-          />
+          <Image source={{ uri: recipientProfilePicture }} style={styles.profilePicture} />
         ) : (
           <View style={styles.profilePicturePlaceholder} />
         )}
         <Text style={styles.profileUsername}>{recipientUsername}</Text>
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity onPress={handleBlockUnblockUser}>
+          <Ionicons name="ellipsis-vertical" size={20} color="#333" style={{ marginRight: 5 }} />
+        </TouchableOpacity>
       </View>
 
-      {/* Messages List */}
       <ScrollView
         ref={scrollViewRef}
         style={styles.messageContainer}
@@ -255,9 +298,7 @@ const MessageScreen = () => {
         onScrollEndDrag={() => setIsUserScrolling(false)}
       >
         {msgs.length === 0 ? (
-          <Text style={styles.noMessagesText}>
-            No messages yet. Start the conversation!
-          </Text>
+          <Text style={styles.noMessagesText}>No messages yet. Start the conversation!</Text>
         ) : (
           msgs.map((msg, index) => {
             const msgDate = msg.timestamp?.seconds
@@ -270,8 +311,8 @@ const MessageScreen = () => {
             const formattedDate = formatDate(msgDate);
             const shouldShowDate =
               index === 0 ||
-              new Date(msgs[index - 1].timestamp.seconds * 1000).getHours() !==
-                msgDate.getHours();
+              new Date(msgs[index - 1].timestamp.seconds * 1000).getHours() !== msgDate.getHours();
+
             return (
               <View key={index}>
                 {shouldShowDate && (
@@ -280,20 +321,9 @@ const MessageScreen = () => {
                   </Text>
                 )}
                 <View
-                  style={[
-                    styles.messageBubble,
-                    msg.senderId === auth.currentUser?.uid
-                      ? styles.sentMessage
-                      : styles.receivedMessage,
-                  ]}
+                  style={[styles.messageBubble, msg.senderId === auth.currentUser?.uid ? styles.sentMessage : styles.receivedMessage]}
                 >
-                  <Text
-                    style={[
-                      styles.messageText,
-                      msg.senderId !== auth.currentUser?.uid &&
-                        styles.receivedMessageText,
-                    ]}
-                  >
+                  <Text style={[styles.messageText, msg.senderId !== auth.currentUser?.uid && styles.receivedMessageText]}>
                     {msg.message}
                   </Text>
                 </View>
@@ -303,7 +333,6 @@ const MessageScreen = () => {
         )}
       </ScrollView>
 
-      {/* Input Field */}
       <View style={[styles.inputContainer, { bottom: keyboardHeight }]}>
         <TextInput
           placeholder="Type a message..."
