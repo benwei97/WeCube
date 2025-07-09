@@ -129,13 +129,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-  },
-  competitionTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 15,
-    color: '#333',
+    backgroundColor: '#f0f2f5',
   },
   placeholderText: {
     fontSize: 18,
@@ -143,23 +137,27 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   cardContainer: {
-    marginBottom: 20, 
+    marginBottom: 15,
   },
   card: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ccc',
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3, 
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
   cardImage: {
     width: 100,
     height: 100,
     resizeMode: 'cover',
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
   },
   imagePlaceholder: {
     width: 100,
@@ -167,6 +165,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#ddd',
     justifyContent: 'center',
     alignItems: 'center',
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
   },
   imagePlaceholderText: {
     color: '#555',
@@ -174,16 +174,20 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     flex: 1,
-    padding: 10,
+    padding: 12,
+    justifyContent: 'center',
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 5,
+    fontWeight: '600',
+    color: '#222',
+    marginBottom: 6,
   },
   cardPrice: {
-    fontSize: 16,
-    color: '#777',
+    fontSize: 14,
+    color: '#666', // Green for emphasis
+    fontWeight: '500',
+    marginTop: 2,
   },
 
   // Floating Action Button (FAB)
@@ -201,6 +205,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
-    elevation: 5, // For Android shadow
+    elevation: 6,
   },
 });

@@ -10,76 +10,64 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { doc, getDoc, setDoc, serverTimestamp, deleteDoc, collection, addDoc } from 'firebase/firestore';
+import {
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
+  deleteDoc,
+  collection,
+  addDoc,
+} from 'firebase/firestore';
 import { db, auth } from '../../../../../firebase';
 import { Ionicons } from '@expo/vector-icons';
 
-interface Listing {
-  id: string;
-  name: string;
-  price: number;
-  imageUrl: string;
-  puzzleType: string;
-  usage: string;
-  description: string;
-  userId: string;
-}
-
 const ListingDetails = () => {
-  const { listingId } = useLocalSearchParams<{ listingId: string }>();
-  const [listing, setListing] = useState<Listing | null>(null);
+  const { listingId } = useLocalSearchParams<{ listingId?: string | string[] }>();
+  const parsedId = Array.isArray(listingId) ? listingId[0] : listingId;
+
+  const [listing, setListing] = useState<any>(null);
   const [sellerUsername, setSellerUsername] = useState('');
   const [isOwner, setIsOwner] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
+    if (!parsedId) return;
+
     const fetchListing = async () => {
       try {
-        const docRef = doc(db, 'listings', listingId as string);
+        const docRef = doc(db, 'listings', parsedId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          const listingData = docSnap.data() as Listing;
-          setListing({
-            id: listingId as string,
-            name: listingData.name || 'Unnamed Listing',
-            price: listingData.price || 0,
-            imageUrl: listingData.imageUrl || '',
-            puzzleType: listingData.puzzleType || 'Unknown',
-            usage: listingData.usage || 'Unknown',
-            description: listingData.description || '',
-            userId: listingData.userId || 'Unknown',
-          });
+          const data = docSnap.data();
+          setListing({ id: parsedId, ...data });
 
-          const userDocRef = doc(db, 'users', listingData.userId);
-          const userDocSnap = await getDoc(userDocRef);
-          setSellerUsername(userDocSnap.exists() ? userDocSnap.data().username : 'Unknown');
+          const userSnap = await getDoc(doc(db, 'users', data.userId));
+          setSellerUsername(userSnap.exists() ? userSnap.data().username : 'Unknown');
 
-          setIsOwner(auth.currentUser?.uid === listingData.userId);
+          setIsOwner(auth.currentUser?.uid === data.userId);
         }
-      } catch (error) {
-        console.error('Error fetching listing:', error);
+      } catch (err) {
+        console.error('Error:', err);
       }
     };
-
     fetchListing();
-  }, [listingId]);
+  }, [parsedId]);
 
   const handleDeleteListing = async () => {
-    if (!isOwner) return;
-
-    Alert.alert('Delete Listing', 'Are you sure you want to delete this listing?', [
+    if (!parsedId || !isOwner) return;
+    Alert.alert('Delete Listing', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
           try {
-            await deleteDoc(doc(db, 'listings', listingId as string));
-            Alert.alert('Listing deleted successfully!');
+            await deleteDoc(doc(db, 'listings', parsedId));
+            Alert.alert('Deleted');
             router.back();
-          } catch (error) {
-            console.error('Error deleting listing:', error);
-            Alert.alert('Failed to delete listing. Please try again.');
+          } catch (err) {
+            Alert.alert('Error deleting');
           }
         },
       },
@@ -88,107 +76,96 @@ const ListingDetails = () => {
 
   const handleContactSeller = async () => {
     if (!auth.currentUser) {
-      alert('You must be logged in to contact the seller.');
+      alert('Login to contact');
       router.push('/login');
       return;
     }
-
     const buyerId = auth.currentUser.uid;
     const sellerId = listing?.userId;
     if (!sellerId) return;
 
-    const sortedIds = [buyerId, sellerId].sort();
-    const conversationId = `${sortedIds[0]}_${sortedIds[1]}`;
-
-    const conversationRef = doc(db, 'conversations', conversationId);
-    const conversationDoc = await getDoc(conversationRef);
-
-    if (!conversationDoc.exists()) {
-      await setDoc(conversationRef, {
-        participants: sortedIds,
+    const ids = [buyerId, sellerId].sort();
+    const conversationId = `${ids[0]}_${ids[1]}`;
+    const ref = doc(db, 'conversations', conversationId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        participants: ids,
         createdAt: serverTimestamp(),
         lastMessage: '',
         unreadBy: [sellerId],
       });
     }
-
     router.push('/tabs/messages');
     setTimeout(() => router.push(`/tabs/messages/${conversationId}`), 1);
   };
 
   const handleReportListing = () => {
-    Alert.prompt(
-      '🚩 Report Listing',
-      'Why are you reporting this listing? (e.g., spam, scam, offensive)',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Submit',
-          onPress: async (reason) => {
-            try {
-              const user = auth.currentUser;
-              if (!user) {
-                Alert.alert('You must be logged in to report a listing.');
-                return;
-              }
-              await addDoc(collection(db, 'reports'), {
-                listingId,
-                reportedBy: user.uid,
-                reason,
-                createdAt: serverTimestamp(),
-                type: 'listing',
-              });
-              Alert.alert('✅ Report submitted', 'Thanks for helping us keep the app safe.');
-            } catch (err) {
-              console.error('Error submitting report:', err);
-              Alert.alert('❌ Error', 'Could not submit report. Try again later.');
-            }
-          },
+    Alert.prompt('Report Listing', 'Reason?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Submit',
+        onPress: async (reason) => {
+          if (!auth.currentUser || !parsedId) return Alert.alert('Login to report');
+          try {
+            await addDoc(collection(db, 'reports'), {
+              listingId: parsedId,
+              reportedBy: auth.currentUser.uid,
+              reason,
+              createdAt: serverTimestamp(),
+              type: 'listing',
+            });
+            Alert.alert('Report submitted');
+          } catch (err) {
+            Alert.alert('Failed');
+          }
         },
-      ],
-      'plain-text'
-    );
+      },
+    ], 'plain-text');
   };
 
   if (!listing) {
     return (
-      <View style={styles.centeredContainer}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007BFF" />
-        <Text>Loading listing details...</Text>
+        <Text style={styles.loadingText}>Loading listing...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Image source={{ uri: listing.imageUrl }} style={styles.listingImage} />
+    <ScrollView contentContainerStyle={styles.page}>
+      <Image source={{ uri: listing.imageUrl }} style={styles.image} />
 
-      <View style={styles.card}>
-        <Text style={styles.listingName}>{listing.name}</Text>
-        <Text style={styles.listingDetail}>Price: <Text style={styles.detailValue}>${listing.price}</Text></Text>
-        <Text style={styles.listingDetail}>Puzzle Type: <Text style={styles.detailValue}>{listing.puzzleType}</Text></Text>
-        <Text style={styles.listingDetail}>Usage: <Text style={styles.detailValue}>{listing.usage}</Text></Text>
-        <Text style={styles.listingDetail}>Description:</Text>
-        <Text style={styles.listingDescription}>{listing.description}</Text>
-      </View>
+      <View style={styles.content}>
+        <Text style={styles.title}>{listing.name}</Text>
+        <Text style={styles.price}>${listing.price}</Text>
+        <View style={styles.metaRow}>
+          <Text style={styles.metaLabel}>Type:</Text>
+          <Text style={styles.metaValue}>{listing.puzzleType}</Text>
+        </View>
+        <View style={styles.metaRow}>
+          <Text style={styles.metaLabel}>Usage:</Text>
+          <Text style={styles.metaValue}>{listing.usage}</Text>
+        </View>
+        <Text style={styles.description}>{listing.description}</Text>
 
-      <View style={styles.sellerInfo}>
-        <Ionicons name="person-circle" size={50} color="#007BFF" />
-        <Text style={styles.sellerName}>Sold by: {sellerUsername}</Text>
-      </View>
+        <View style={styles.sellerRow}>
+          <Ionicons name="person-circle-outline" size={28} color="#007BFF" />
+          <Text style={styles.sellerText}>Sold by {sellerUsername}</Text>
+        </View>
 
-      <View style={styles.buttonContainer}>
         {isOwner ? (
           <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteListing}>
-            <Text style={styles.deleteButtonText}>Delete Listing</Text>
+            <Text style={styles.deleteText}>Delete Listing</Text>
           </TouchableOpacity>
         ) : (
           <>
             <TouchableOpacity style={styles.contactButton} onPress={handleContactSeller}>
-              <Text style={styles.contactButtonText}>Contact Seller</Text>
+              <Text style={styles.contactText}>Contact Seller</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.reportButton} onPress={handleReportListing}>
-              <Text style={styles.reportButtonText}>🚩 Report</Text>
+              <Text style={styles.reportText}>🚩 Report</Text>
             </TouchableOpacity>
           </>
         )}
@@ -197,37 +174,110 @@ const ListingDetails = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: '#f5f5f5' },
-  centeredContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  card: {
-    backgroundColor: '#fff', borderRadius: 12, padding: 20, marginBottom: 20,
-    shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5, elevation: 3,
-  },
-  listingImage: { width: '100%', height: 250, borderRadius: 12, marginBottom: 20, resizeMode: 'cover' },
-  listingName: { fontSize: 22, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' },
-  listingDetail: { fontSize: 16, marginBottom: 5, color: '#555' },
-  detailValue: { fontWeight: 'bold', color: '#333' },
-  listingDescription: { fontSize: 14, marginTop: 5, color: '#666', lineHeight: 20 },
-  sellerInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
-  sellerName: { fontSize: 16, marginLeft: 10, color: '#007BFF', fontWeight: 'bold' },
-  buttonContainer: { alignItems: 'center' },
-  deleteButton: {
-    backgroundColor: '#FF3B30', padding: 12, borderRadius: 25,
-    width: '80%', alignItems: 'center', marginTop: 10,
-  },
-  deleteButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  contactButton: {
-    backgroundColor: '#007BFF', padding: 12, borderRadius: 25,
-    width: '80%', alignItems: 'center',
-  },
-  contactButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  reportButton: {
-    borderColor: '#aaa', borderWidth: 1, paddingVertical: 8, paddingHorizontal: 16,
-    borderRadius: 18, marginTop: 10, alignItems: 'center',
-  },
-  reportButtonText: { color: '#666', fontSize: 14, fontWeight: '500' },
-});
-
 export default ListingDetails;
+
+const styles = StyleSheet.create({
+  page: {
+    padding: 20,
+    backgroundColor: '#f6f8fa',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#555',
+  },
+  image: {
+    width: '100%',
+    height: 250,
+    borderRadius: 16,
+    marginBottom: 20,
+    backgroundColor: '#e0e0e0',
+  },
+  content: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '600',
+    marginBottom: 6,
+    color: '#222',
+  },
+  price: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 16,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    marginBottom: 6,
+  },
+  metaLabel: {
+    fontWeight: '500',
+    color: '#555',
+    marginRight: 4,
+  },
+  metaValue: {
+    color: '#333',
+  },
+  description: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 20,
+  },
+  sellerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  sellerText: {
+    marginLeft: 8,
+    fontSize: 15,
+    color: '#007BFF',
+    fontWeight: '500',
+  },
+  contactButton: {
+    backgroundColor: '#007BFF',
+    paddingVertical: 12,
+    borderRadius: 25,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  contactText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  deleteButton: {
+    backgroundColor: '#ff3b30',
+    paddingVertical: 12,
+    borderRadius: 25,
+    alignItems: 'center',
+  },
+  deleteText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  reportButton: {
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  reportText: {
+    color: '#888',
+    fontSize: 14,
+  },
+});
