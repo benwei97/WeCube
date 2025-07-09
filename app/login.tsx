@@ -14,11 +14,11 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { auth, db } from '../firebase';
 import { signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { registerForPushNotificationsAsync } from '../pushNotifications';
-
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -27,6 +27,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [resendCooldown, setResendCountdown] = useState(0);
@@ -38,7 +39,6 @@ function Login() {
       const interval = setInterval(() => {
         setResendCountdown((prev) => (prev > 1 ? prev - 1 : 0));
       }, 1000);
-
       return () => clearInterval(interval);
     }
   }, [resendCooldown]);
@@ -53,11 +53,10 @@ function Login() {
 
       if (!user.emailVerified) {
         setError('⚠ Your email is not verified. Please check your inbox.');
-        setUserForResend(user); // Save user for resend option
+        setUserForResend(user);
         return;
       }
 
-      // ✅ Check if user has completed profile setup in Firestore
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       const userData = userDoc.data();
 
@@ -67,10 +66,8 @@ function Login() {
       }
 
       if (userData && !userData.hasCompletedProfileSetup) {
-        console.log('Redirecting to profile setup...');
         router.replace('/profilesetup');
       } else {
-        console.log('Login successful, navigating to home page...');
         router.replace('/tabs/competitions');
       }
     } catch (error) {
@@ -103,7 +100,6 @@ function Login() {
     }
   };
 
-  // ✅ Resend Verification Email when Login Fails Due to Unverified Email
   const resendVerificationEmail = async () => {
     if (!userForResend) return;
 
@@ -155,19 +151,24 @@ function Login() {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
-              autoCorrect={false}        
-              autoComplete="off" 
+              autoCorrect={false}
+              autoComplete="off"
               style={styles.input}
             />
 
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor="#aaa"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              style={styles.input}
-            />
+            <View style={styles.passwordContainer}>
+              <TextInput
+                placeholder="Password"
+                placeholderTextColor="#aaa"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!passwordVisible}
+                style={styles.passwordInput}
+              />
+              <TouchableOpacity onPress={() => setPasswordVisible(!passwordVisible)} style={styles.eyeIcon}>
+                <Ionicons name={passwordVisible ? 'eye-off' : 'eye'} size={24} color="#777" />
+              </TouchableOpacity>
+            </View>
 
             {message ? <Text style={styles.successText}>{message}</Text> : null}
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -206,7 +207,6 @@ function Login() {
   );
 }
 
-/* 💡 Updated Styles with Grouped Header */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -220,15 +220,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 25,
   },
-  cooldownText: {
-    color: '#777',
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 10,
-  },
   headerContainer: {
-    alignItems: 'center', // Keeps title & subtitle centered
-    marginBottom: 30, // Provides space before inputs
+    alignItems: 'center',
+    marginBottom: 30,
   },
   title: {
     fontSize: 26,
@@ -251,7 +245,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-    successText: {
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 25,
+    backgroundColor: '#fff',
+    paddingHorizontal: 15,
+    marginBottom: 15,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 15,
+    fontSize: 16,
+    color: '#333',
+  },
+  eyeIcon: {
+    padding: 10,
+  },
+  successText: {
     color: 'green',
     fontSize: 15,
     textAlign: 'center',
@@ -259,9 +272,9 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: 'red',
-    marginBottom: 10,
+    fontSize: 15,
     textAlign: 'center',
-    fontSize: 14,
+    marginBottom: 15,
   },
   loginButton: {
     backgroundColor: '#007BFF',
@@ -280,6 +293,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  cooldownText: {
+    color: '#777',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 10,
   },
   link: {
     marginTop: 15,

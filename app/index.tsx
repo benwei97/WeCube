@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { registerForPushNotificationsAsync } from '../pushNotifications';
 
@@ -7,20 +7,25 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // Register the device for push notifications on component mount.
-    // This will request permissions, retrieve the Expo push token,
-    // and log it to the console.
     registerForPushNotificationsAsync();
   }, []);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to WeCube</Text>
-      <Text style={styles.subtitle}>Your all-in-one marketplace for WCA competitions.</Text>
+      {/* Logo */}
+      <Image
+        source={require('../assets/wecube-logo.png')} // update path as needed
+        style={styles.logo}
+        resizeMode="contain"
+      />
+
+      {/* Welcome Text */}
+      <Text style={styles.title}>Welcome to <Text style={styles.brand}>WeCube</Text></Text>
+      <Text style={styles.subtitle}>Buy, sell, and trade Rubik’s cubes with trusted cubers around the world.</Text>
 
       {/* Buttons */}
       <TouchableOpacity style={styles.button} onPress={() => router.push('/login')}>
-        <Text style={styles.buttonText}>Login</Text>
+        <Text style={styles.buttonText}>Log In</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={[styles.button, styles.signupButton]} onPress={() => router.push('/signup')}>
@@ -30,48 +35,55 @@ export default function Home() {
   );
 }
 
-// Styles
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: 20,
+    padding: 24,
+  },
+  logo: {
+    width: 150,
+    height: 150,
+    marginBottom: 10,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 28,
+    fontWeight: '600',
+    color: '#111',
+    textAlign: 'center',
     marginBottom: 8,
+  },
+  brand: {
+    color: '#007BFF',
+    fontWeight: 'bold',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#444',
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 36,
+    paddingHorizontal: 12,
   },
   button: {
-    width: '80%',
-    paddingVertical: 15,
-    borderRadius: 25,
+    width: '85%',
+    paddingVertical: 16,
+    borderRadius: 30,
     backgroundColor: '#007BFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 16,
+    elevation: 4,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '600',
   },
   signupButton: {
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
     borderWidth: 2,
     borderColor: '#007BFF',
   },
