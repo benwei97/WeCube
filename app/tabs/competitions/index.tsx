@@ -239,13 +239,21 @@ const styles = StyleSheet.create({
   },
   
   
-  competitionCard: {
+    competitionCard: {
     flexDirection: 'row',
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: '#f9f9f9',
-    marginBottom: 10,
+    borderColor: '#ddd',
+    borderWidth: 1,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2, // Android shadow
   },
+
   flag: {
     marginRight: 15,
   },
