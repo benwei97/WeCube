@@ -183,16 +183,15 @@ const ProfileScreen = () => {
           </View>
 
           {!isEditing && (
-            <>
+            <View style={styles.accountActions}>
               <TouchableOpacity style={styles.logoutButton} onPress={confirmLogout}>
-                <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
+                <Ionicons name="log-out-outline" size={20} color="#555" />
                 <Text style={styles.logoutButtonText}>Logout</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.deleteButton} onPress={confirmDeleteAccount}>
-                <Ionicons name="trash" size={24} color="#FF3B30" />
                 <Text style={styles.deleteButtonText}>Delete Account</Text>
               </TouchableOpacity>
-            </>
+            </View>
           )}
         </View>
       </TouchableWithoutFeedback>
@@ -215,10 +214,11 @@ const styles = StyleSheet.create({
   profilePicturePlaceholder: { width: '100%', height: '100%', backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center' },
   imagePickerText: { fontSize: 24, color: '#007BFF' },
   usernameText: { fontSize: 18, fontWeight: 'bold' },
-  logoutButton: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginTop: 30, paddingVertical: 10, paddingHorizontal: 15, borderRadius: 8 },
-  logoutButtonText: { marginLeft: 8, color: '#FF3B30', fontSize: 16 },
-  deleteButton: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', marginTop: 20, paddingVertical: 10, paddingHorizontal: 15, borderRadius: 8 },
-  deleteButtonText: { marginLeft: 8, color: '#FF3B30', fontSize: 16 },
+  accountActions: { marginTop: 30, alignItems: 'center' },
+  logoutButton: { flexDirection: 'row', alignItems: 'center', padding: 10, backgroundColor: '#eee', borderRadius: 8 },
+  logoutButtonText: { marginLeft: 8, color: '#555', fontSize: 15 },
+  deleteButton: { marginTop: 10, padding: 6, borderRadius: 6 },
+  deleteButtonText: { color: '#999', fontSize: 13, textDecorationLine: 'underline' },
 });
 
 export default ProfileScreen;
