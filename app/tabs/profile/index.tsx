@@ -147,23 +147,23 @@ const ProfileScreen = () => {
         <View style={styles.inner}>
           <View style={styles.header}>
             <Text style={styles.title}>Profile</Text>
-            <View style={styles.actions}>
+            <View style={styles.editButtonsContainer}>
               {isEditing ? (
                 <>
-                  <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
+                  <TouchableOpacity onPress={handleSave} style={styles.iconButton}>
                     {uploading ? (
-                      <ActivityIndicator color="#fff" />
+                      <ActivityIndicator size="small" color="#007BFF" />
                     ) : (
-                      <Text style={styles.saveButtonText}>Save</Text>
+                      <Ionicons name="checkmark" size={22} color="#007BFF" />
                     )}
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setIsEditing(false)} style={styles.cancelButton}>
-                    <Ionicons name="close-circle" size={24} color="#FF3B30" />
+                  <TouchableOpacity onPress={() => setIsEditing(false)} style={styles.iconButton}>
+                    <Ionicons name="close" size={22} color="#FF3B30" />
                   </TouchableOpacity>
                 </>
               ) : (
-                <TouchableOpacity onPress={() => setIsEditing(true)}>
-                  <MaterialIcons name="edit" size={24} color="#007BFF" />
+                <TouchableOpacity onPress={() => setIsEditing(true)} style={styles.iconButton}>
+                  <MaterialIcons name="edit" size={22} color="#007BFF" />
                 </TouchableOpacity>
               )}
             </View>
@@ -203,11 +203,19 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   inner: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#f5f5f5' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  actions: { flexDirection: 'row', gap: 10 },
+  editButtonsContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', minHeight: 30 },
+  iconButton: {
+    padding: 6,
+    marginLeft: 8,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
   title: { fontSize: 24, fontWeight: 'bold', color: '#333' },
-  saveButton: { backgroundColor: '#007BFF', padding: 10, borderRadius: 8 },
-  saveButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  cancelButton: { paddingHorizontal: 10 },
   card: { backgroundColor: '#fff', padding: 20, borderRadius: 12, alignItems: 'center', elevation: 5 },
   profilePictureTouchable: { width: 120, height: 120, borderRadius: 60, overflow: 'hidden', marginBottom: 15 },
   profilePicture: { width: '100%', height: '100%' },
