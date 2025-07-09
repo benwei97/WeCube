@@ -163,54 +163,46 @@ const MessageScreen = () => {
 
   const handleBlockUnblockUser = () => {
     if (isRecipientBlockedByCurrentUser) {
-      Alert.alert(
-        'Unblock User',
-        'Do you want to unblock this user?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Unblock',
-            onPress: async () => {
-              try {
-                const userRef = doc(db, 'users', auth.currentUser.uid);
-                await updateDoc(userRef, {
-                  blockedUsers: arrayRemove(recipientId),
-                });
-                setIsRecipientBlockedByCurrentUser(false);
-                setIsEitherUserBlocked(false);
-                Alert.alert('User unblocked');
-              } catch (error) {
-                console.error('Error unblocking user:', error);
-              }
-            },
+      Alert.alert('Unblock User', 'Do you want to unblock this user?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unblock',
+          onPress: async () => {
+            try {
+              const userRef = doc(db, 'users', auth.currentUser.uid);
+              await updateDoc(userRef, {
+                blockedUsers: arrayRemove(recipientId),
+              });
+              setIsRecipientBlockedByCurrentUser(false);
+              setIsEitherUserBlocked(false);
+              Alert.alert('User unblocked');
+            } catch (error) {
+              console.error('Error unblocking user:', error);
+            }
           },
-        ]
-      );
+        },
+      ]);
     } else {
-      Alert.alert(
-        'Block User',
-        'Are you sure you want to block this user? You will no longer receive messages from them.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Block',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                const userRef = doc(db, 'users', auth.currentUser.uid);
-                await updateDoc(userRef, {
-                  blockedUsers: arrayUnion(recipientId),
-                });
-                setIsRecipientBlockedByCurrentUser(true);
-                setIsEitherUserBlocked(true);
-                Alert.alert('User blocked');
-              } catch (error) {
-                console.error('Error blocking user:', error);
-              }
-            },
+      Alert.alert('Block User', 'Are you sure you want to block this user?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const userRef = doc(db, 'users', auth.currentUser.uid);
+              await updateDoc(userRef, {
+                blockedUsers: arrayUnion(recipientId),
+              });
+              setIsRecipientBlockedByCurrentUser(true);
+              setIsEitherUserBlocked(true);
+              Alert.alert('User blocked');
+            } catch (error) {
+              console.error('Error blocking user:', error);
+            }
           },
-        ]
-      );
+        },
+      ]);
     }
   };
 
@@ -256,17 +248,9 @@ const MessageScreen = () => {
     const now = new Date();
     const yesterday = new Date();
     yesterday.setDate(now.getDate() - 1);
-    if (
-      msgDate.getDate() === now.getDate() &&
-      msgDate.getMonth() === now.getMonth() &&
-      msgDate.getFullYear() === now.getFullYear()
-    ) return 'Today';
-    else if (
-      msgDate.getDate() === yesterday.getDate() &&
-      msgDate.getMonth() === yesterday.getMonth() &&
-      msgDate.getFullYear() === yesterday.getFullYear()
-    ) return 'Yesterday';
-    else return msgDate.toLocaleDateString();
+    if (msgDate.toDateString() === now.toDateString()) return 'Today';
+    if (msgDate.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return msgDate.toLocaleDateString();
   };
 
   return (
@@ -280,7 +264,7 @@ const MessageScreen = () => {
         <Text style={styles.profileUsername}>{recipientUsername}</Text>
         <View style={{ flex: 1 }} />
         <TouchableOpacity onPress={handleBlockUnblockUser}>
-          <Ionicons name="ellipsis-vertical" size={20} color="#333" style={{ marginRight: 5 }} />
+          <Ionicons name="ellipsis-vertical" size={20} color="#555" style={{ marginRight: 5 }} />
         </TouchableOpacity>
       </View>
 
@@ -301,29 +285,22 @@ const MessageScreen = () => {
           <Text style={styles.noMessagesText}>No messages yet. Start the conversation!</Text>
         ) : (
           msgs.map((msg, index) => {
-            const msgDate = msg.timestamp?.seconds
-              ? new Date(msg.timestamp.seconds * 1000)
-              : new Date();
-            const formattedTime = msgDate.toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            });
+            const msgDate = msg.timestamp?.seconds ? new Date(msg.timestamp.seconds * 1000) : new Date();
+            const formattedTime = msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             const formattedDate = formatDate(msgDate);
-            const shouldShowDate =
+            const showDate =
               index === 0 ||
-              new Date(msgs[index - 1].timestamp.seconds * 1000).getHours() !== msgDate.getHours();
+              new Date(msgs[index - 1].timestamp.seconds * 1000).toDateString() !== msgDate.toDateString();
 
             return (
               <View key={index}>
-                {shouldShowDate && (
-                  <Text style={styles.dateIndicator}>
-                    {formattedDate} - {formattedTime}
-                  </Text>
-                )}
+                {showDate && <Text style={styles.dateIndicator}>{formattedDate} - {formattedTime}</Text>}
                 <View
                   style={[styles.messageBubble, msg.senderId === auth.currentUser?.uid ? styles.sentMessage : styles.receivedMessage]}
                 >
-                  <Text style={[styles.messageText, msg.senderId !== auth.currentUser?.uid && styles.receivedMessageText]}>
+                  <Text
+                    style={[styles.messageText, msg.senderId !== auth.currentUser?.uid && styles.receivedMessageText]}
+                  >
                     {msg.message}
                   </Text>
                 </View>
@@ -336,7 +313,7 @@ const MessageScreen = () => {
       <View style={[styles.inputContainer, { bottom: keyboardHeight }]}>
         <TextInput
           placeholder="Type a message..."
-          placeholderTextColor="#777"
+          placeholderTextColor="#999"
           value={newMessage}
           onChangeText={setNewMessage}
           style={styles.textInput}
@@ -356,38 +333,40 @@ const MessageScreen = () => {
 export default MessageScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
   profileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
+    padding: 12,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#eee',
   },
   profilePicture: { width: 40, height: 40, borderRadius: 20, marginHorizontal: 10 },
-  profileUsername: { fontSize: 18, fontWeight: 'bold' },
-  dateIndicator: { textAlign: 'center', color: '#777', marginVertical: 10 },
+  profileUsername: { fontSize: 17, fontWeight: '600', color: '#333' },
+  dateIndicator: { textAlign: 'center', color: '#aaa', marginVertical: 10, fontSize: 12 },
   messageBubble: {
     padding: 12,
     borderRadius: 18,
     maxWidth: '75%',
     marginVertical: 5,
   },
-  sentMessage: { alignSelf: 'flex-end', backgroundColor: '#007BFF' },
-  receivedMessage: { alignSelf: 'flex-start', backgroundColor: '#E0E0E0' },
+  sentMessage: { alignSelf: 'flex-end', backgroundColor: '#007AFF' },
+  receivedMessage: { alignSelf: 'flex-start', backgroundColor: '#E5E5EA' },
   receivedMessageText: { color: '#000' },
-  messageText: { fontSize: 16, color: '#fff' },
+  messageText: { fontSize: 15, color: '#fff' },
   textInput: {
     flex: 1,
     borderRadius: 20,
     paddingHorizontal: 15,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F0F0F0',
     height: 40,
+    fontSize: 15,
   },
   sendButton: {
     padding: 10,
     borderRadius: 20,
-    backgroundColor: '#007BFF',
+    backgroundColor: '#007AFF',
     marginLeft: 10,
   },
   profilePicturePlaceholder: {
@@ -402,8 +381,8 @@ const styles = StyleSheet.create({
   messageContainer: { flex: 1, paddingHorizontal: 10 },
   noMessagesText: {
     textAlign: 'center',
-    color: '#888',
-    fontSize: 16,
+    color: '#999',
+    fontSize: 15,
     fontStyle: 'italic',
     marginTop: 20,
   },
@@ -413,6 +392,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#eee',
   },
 });

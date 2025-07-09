@@ -47,30 +47,29 @@ const Messages = () => {
 
   useEffect(() => {
     if (!auth.currentUser) return;
-  
+
     const q = query(
       collection(db, 'conversations'),
       where('participants', 'array-contains', auth.currentUser.uid)
     );
-  
+
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const convos: Conversation[] = [];
       const usernamesMap: { [key: string]: User } = {};
-  
+
       for (const docSnapshot of snapshot.docs) {
         const data = docSnapshot.data() as Conversation;
         const conversationData = { ...data, id: docSnapshot.id };
-  
-        // **Fetch Last Message**
+
         const messagesQuery = query(
           collection(db, "messages"),
           where("conversationId", "==", docSnapshot.id),
           orderBy("timestamp", "desc"),
           limit(1)
         );
-        
+
         const messagesSnapshot = await getDocs(messagesQuery);
-        
+
         if (!messagesSnapshot.empty) {
           const lastMessageData = messagesSnapshot.docs[0].data();
           conversationData.lastMessage = lastMessageData as {
@@ -79,10 +78,10 @@ const Messages = () => {
             timestamp: any;
             isRead?: boolean;
           };
-  
-          convos.push(conversationData); // ✅ Add conversation only if a message exists
+
+          convos.push(conversationData);
         }
-  
+
         const otherParticipantId = data.participants.find(
           (id) => id !== auth.currentUser?.uid
         );
@@ -98,56 +97,24 @@ const Messages = () => {
           }
         }
       }
-  
-      // **Sort Conversations by Most Recent Message**
+
       convos.sort((a, b) => {
         if (a.lastMessage?.timestamp && b.lastMessage?.timestamp) {
           return b.lastMessage.timestamp.toMillis() - a.lastMessage.timestamp.toMillis();
         }
         return 0;
       });
-  
+
       setConversations(convos);
       setUsernames(prevState => ({ ...prevState, ...usernamesMap }));
       setLoading(false);
     });
-  
+
     return () => unsubscribe();
   }, []);
-  
 
   const handleConversationClick = async (conversation: Conversation) => {
-    // Navigate to the conversation screen
     router.push(`/tabs/messages/${conversation.id}`);
-
-    // The following logic is commented out so that the unread messages
-    // are NOT marked as read until the user actually views the conversation.
-    /*
-    const q = query(
-      collection(db, 'messages'),
-      where('conversationId', '==', conversation.id),
-      where('recipientId', '==', auth.currentUser?.uid),
-      where('isRead', '==', false)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      snapshot.forEach(async (messageDoc) => {
-        await updateDoc(messageDoc.ref, { isRead: true });
-      });
-    });
-
-    if (
-      conversation.lastMessage?.isRead === false &&
-      conversation.lastMessage?.senderId !== auth.currentUser?.uid
-    ) {
-      const conversationRef = doc(db, 'conversations', conversation.id);
-      await updateDoc(conversationRef, {
-        'lastMessage.isRead': true,
-      });
-    }
-
-    return () => unsubscribe();
-    */
   };
 
   const hasUnreadMessages = (conversation: Conversation): boolean => {
@@ -159,7 +126,7 @@ const Messages = () => {
 
   if (loading) {
     return (
-      <View style={styles.loaderContainer}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007BFF" />
       </View>
     );
@@ -190,22 +157,17 @@ const Messages = () => {
         return (
           <TouchableOpacity
             onPress={() => handleConversationClick(item)}
-            style={styles.conversationItem}
+            style={styles.conversationCard}
           >
             <Image
               source={{ uri: otherParticipant.photoURL }}
               style={styles.profilePicture}
             />
-            <View style={styles.conversationDetails}>
-              <Text style={styles.username}>
-                {otherParticipant.username}
-              </Text>
+            <View style={styles.detailsContainer}>
+              <Text style={styles.username}>{otherParticipant.username}</Text>
               <View style={styles.lastMessageContainer}>
                 <Text
-                  style={[
-                    styles.lastMessage,
-                    hasUnreadMessages(item) ? styles.unreadMessage : {},
-                  ]}
+                  style={[styles.lastMessage, hasUnreadMessages(item) && styles.unreadMessage]}
                   numberOfLines={1}
                 >
                   {item.lastMessage?.message || 'No messages yet'}
@@ -217,18 +179,14 @@ const Messages = () => {
                 </Text>
               </View>
             </View>
-            {hasUnreadMessages(item) && (
-              <View style={styles.unreadIndicator} />
-            )}
+            {hasUnreadMessages(item) && <View style={styles.unreadIndicator} />}
           </TouchableOpacity>
         );
       }}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
     />
   );
 };
 
-// Format timestamps for last message
 const formatTimestamp = (timestamp: any) => {
   const date = timestamp.toDate();
   const now = new Date();
@@ -241,7 +199,7 @@ const formatTimestamp = (timestamp: any) => {
 };
 
 const styles = StyleSheet.create({
-  loaderContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -256,19 +214,21 @@ const styles = StyleSheet.create({
     color: '#888',
     fontStyle: 'italic',
   },
-  conversationItem: {
+  conversationCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: 15,
-    marginVertical: 5,
     padding: 15,
     borderRadius: 12,
+    backgroundColor: '#f9f9f9',
+    borderColor: '#ddd',
+    borderWidth: 1,
+    marginHorizontal: 15,
+    marginVertical: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
+    alignItems: 'center',
   },
   profilePicture: {
     width: 55,
@@ -277,15 +237,14 @@ const styles = StyleSheet.create({
     marginRight: 15,
     backgroundColor: '#ddd',
   },
-  conversationDetails: {
+  detailsContainer: {
     flex: 1,
-    justifyContent: 'center',
   },
   username: {
     fontSize: 17,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 3,
+    marginBottom: 4,
   },
   lastMessageContainer: {
     flexDirection: 'row',
@@ -297,7 +256,7 @@ const styles = StyleSheet.create({
     color: '#777',
     flexShrink: 1,
   },
-  unreadMessage: { 
+  unreadMessage: {
     fontWeight: 'bold',
     color: '#000',
   },
@@ -305,11 +264,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#aaa',
     marginLeft: 10,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#E0E0E0',
-    marginHorizontal: 15,
   },
   unreadIndicator: {
     width: 10,
