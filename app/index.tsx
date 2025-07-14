@@ -1,14 +1,37 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { registerForPushNotificationsAsync } from '../pushNotifications';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../firebase';
 
 export default function Home() {
   const router = useRouter();
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
+    // Persistent login check
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.replace('/tabs/competitions'); // Already logged in
+      } else {
+        setCheckingAuth(false); // Show landing screen
+      }
+    });
+
     registerForPushNotificationsAsync();
+
+    return unsubscribe;
   }, []);
+
+  if (checkingAuth) {
+    // While checking, show spinner
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007BFF" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -35,8 +58,13 @@ export default function Home() {
   );
 }
 
-
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+  },
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
